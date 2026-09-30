@@ -21,7 +21,7 @@ def get_conn():
     (numeral 3.2): aquí solo se cachean el historial replicado, los modelos
     entrenados y las recomendaciones generadas, nunca las tablas de otros
     servicios."""
-    conn = psycopg2.connect(os.getenv('DATABASE_URL'), sslmode='require')
+    conn = psycopg2.connect(os.getenv('DATABASE_URL'), sslmode=('require' if os.getenv('DB_SSL')=='true' else 'disable'))
     with conn.cursor() as cur:
         cur.execute("SET search_path TO prediccion, public")
     return conn

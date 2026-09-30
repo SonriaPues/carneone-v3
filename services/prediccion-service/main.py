@@ -36,7 +36,7 @@ def init_db():
 
 def psycopg2_connect_raw():
     import psycopg2
-    conn = psycopg2.connect(os.getenv('DATABASE_URL'), sslmode='require')
+    conn = psycopg2.connect(os.getenv('DATABASE_URL'), sslmode=('require' if os.getenv('DB_SSL')=='true' else 'disable'))
     return conn
 
 

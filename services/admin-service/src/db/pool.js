@@ -4,7 +4,7 @@ const { Pool } = require('pg');
 // `admin` (numeral 3.2): usuarios (meseros/cocina/caja/admin) y menú.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
 });
 
 pool.on('connect', (client) => {
