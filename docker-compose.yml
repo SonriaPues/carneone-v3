@@ -1,0 +1,126 @@
+version: "3.9"
+
+# Orquestación del MVP Carneone con Docker (numeral 3.6): un contenedor por
+# microservicio, orquestados con docker-compose (sin Kubernetes, dado el
+# alcance del MVP), una única instancia de PostgreSQL con un esquema por
+# servicio (numeral 3.2), y Nginx como proxy inverso con HTTPS delante del
+# Gateway.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: carneone
+      POSTGRES_USER: carneone
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carneone"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [carneone]
+
+  pedidos-service:
+    build:
+      context: .
+      dockerfile: services/pedidos-service/Dockerfile
+    restart: unless-stopped
+    depends_on: { postgres: { condition: service_healthy } }
+    environment:
+      PORT: 4001
+      DATABASE_URL: postgres://carneone:${POSTGRES_PASSWORD:-changeme}@postgres:5432/carneone
+      JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET}
+      INTERNAL_KEY: ${INTERNAL_KEY:?falta INTERNAL_KEY}
+      ADMIN_URL: http://admin-service:4003
+      INVENTARIO_URL: http://inventario-service:4002
+    networks: [carneone]
+
+  inventario-service:
+    build:
+      context: .
+      dockerfile: services/inventario-service/Dockerfile
+    restart: unless-stopped
+    depends_on: { postgres: { condition: service_healthy } }
+    environment:
+      PORT: 4002
+      DATABASE_URL: postgres://carneone:${POSTGRES_PASSWORD:-changeme}@postgres:5432/carneone
+      JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET}
+      INTERNAL_KEY: ${INTERNAL_KEY:?falta INTERNAL_KEY}
+    networks: [carneone]
+
+  admin-service:
+    build:
+      context: .
+      dockerfile: services/admin-service/Dockerfile
+    restart: unless-stopped
+    depends_on: { postgres: { condition: service_healthy } }
+    environment:
+      PORT: 4003
+      DATABASE_URL: postgres://carneone:${POSTGRES_PASSWORD:-changeme}@postgres:5432/carneone
+      JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET}
+      INTERNAL_KEY: ${INTERNAL_KEY:?falta INTERNAL_KEY}
+      CLAVE_ADMIN: ${CLAVE_ADMIN:?falta CLAVE_ADMIN}
+      CLAVE_CAJA: ${CLAVE_CAJA:?falta CLAVE_CAJA}
+      PEDIDOS_URL: http://pedidos-service:4001
+    networks: [carneone]
+
+  prediccion-service:
+    build:
+      context: .
+      dockerfile: services/prediccion-service/Dockerfile
+    restart: unless-stopped
+    depends_on: { postgres: { condition: service_healthy } }
+    environment:
+      PORT: 8000
+      DATABASE_URL: postgres://carneone:${POSTGRES_PASSWORD:-changeme}@postgres:5432/carneone
+      INTERNAL_KEY: ${INTERNAL_KEY:?falta INTERNAL_KEY}
+      PEDIDOS_URL: http://pedidos-service:4001
+      INVENTARIO_URL: http://inventario-service:4002
+    networks: [carneone]
+
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    restart: unless-stopped
+    depends_on: [pedidos-service, inventario-service, admin-service, prediccion-service]
+    environment:
+      PORT: 4000
+      PEDIDOS_URL: http://pedidos-service:4001
+      INVENTARIO_URL: http://inventario-service:4002
+      ADMIN_URL: http://admin-service:4003
+      PREDICCION_URL: http://prediccion-service:8000
+    expose: ["4000"]
+    networks: [carneone]
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [gateway]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - certbot-www:/var/www/certbot:ro
+      - certbot-certs:/etc/letsencrypt:ro
+    networks: [carneone]
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h; done'"
+    networks: [carneone]
+
+networks:
+  carneone:
+
+volumes:
+  pgdata:
+  certbot-www:
+  certbot-certs:

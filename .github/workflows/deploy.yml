@@ -1,0 +1,69 @@
+name: Build y despliegue Carneone
+
+# Estrategia de despliegue y actualización (numeral 3.6): en cada push a main
+# se construyen las imágenes Docker de los cinco componentes y, si hay un
+# servidor de destino configurado (secrets DEPLOY_HOST/DEPLOY_KEY), se
+# despliegan por SSH ejecutando `docker compose up -d --build`. Sin esos
+# secrets configurados, el workflow solo valida que todas las imágenes
+# construyen correctamente (CI de build).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        servicio:
+          - { nombre: gateway,            dockerfile: services/gateway/Dockerfile }
+          - { nombre: pedidos-service,    dockerfile: services/pedidos-service/Dockerfile }
+          - { nombre: inventario-service, dockerfile: services/inventario-service/Dockerfile }
+          - { nombre: admin-service,      dockerfile: services/admin-service/Dockerfile }
+          - { nombre: prediccion-service, dockerfile: services/prediccion-service/Dockerfile }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir imagen de ${{ matrix.servicio.nombre }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.servicio.dockerfile }}
+          push: false
+          tags: carneone/${{ matrix.servicio.nombre }}:${{ github.sha }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar credenciales de despliegue
+        id: check
+        run: |
+          if [ -n "${{ secrets.DEPLOY_HOST }}" ]; then
+            echo "listo=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "listo=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Desplegar por SSH (fuera del horario de atención del restaurante)
+        if: steps.check.outputs.listo == 'true'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            cd /opt/carneone-v3
+            git pull origin main
+            docker compose up -d --build
+            docker image prune -f
+
+      - name: Sin credenciales de despliegue configuradas
+        if: steps.check.outputs.listo == 'false'
+        run: echo "DEPLOY_HOST no está configurado; se omite el despliegue (solo build de CI)."
