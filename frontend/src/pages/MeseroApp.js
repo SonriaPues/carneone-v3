@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import MapaMesas from '../components/MapaMesas';
 
 const API = process.env.REACT_APP_API_URL || '';
 const PROTEINAS = ['Carne','Pechuga','Cerdo','Costillas','Mojarra','Trucha'];
@@ -86,17 +87,7 @@ export default function MeseroApp() {
             <span style={{fontSize:13,fontWeight:600,color:'var(--verde-oscuro)'}}>Mesas</span>
             <span style={{fontSize:11,color:'var(--gris-muted)'}}>{mesas.filter(m=>m.estado==='ocupada').length} ocupadas</span>
           </div>
-          <div className="mesa-grid">
-            {mesas.map(m => (
-              <div key={m.id} className={`mesa-card ${m.estado}`} onClick={() => seleccionarMesa(m)}>
-                <div className="mesa-num">{m.numero}</div>
-                <div className="mesa-zona">{m.zona}</div>
-                <div className="mesa-estado" style={{color: m.estado==='ocupada'?'var(--verde-claro)':'var(--gris-muted)'}}>
-                  {m.estado==='ocupada'?'● Ocupada':'○ Libre'}
-                </div>
-              </div>
-            ))}
-          </div>
+          <MapaMesas mesas={mesas} onMesaClick={seleccionarMesa} />
         </>
       )}
 
