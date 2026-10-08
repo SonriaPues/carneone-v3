@@ -1,0 +1,142 @@
+:root {
+  --verde-oscuro:#1B4332;--verde-medio:#2D6A4F;--verde-claro:#40916C;
+  --menta:#74C69D;--menta-fondo:#F0FAF4;--borde-suave:#D8EFE4;
+  --gris-muted:#6B7280;--rojo:#DC2626;--rojo-fondo:#FEE2E2;
+  --naranja:#D97706;--naranja-fondo:#FEF3C7;
+  --blanco:#FFFFFF;--fondo:#F9FAFB;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit;margin:0;padding:0}
+html,body,#root{height:100%;font-family:'Inter',sans-serif;background:var(--fondo);color:var(--verde-oscuro)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+
+/* Nav */
+.nav{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--verde-oscuro);position:sticky;top:0;z-index:100}
+.nav-title{color:#fff;font-size:15px;font-weight:600}
+.nav-sub{color:var(--menta);font-size:11px;margin-top:1px}
+.nav-btn{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer}
+
+/* Tabs */
+.tabs{display:flex;background:#fff;border-bottom:1px solid var(--borde-suave);overflow-x:auto}
+.tab{padding:10px 16px;font-size:12px;color:var(--gris-muted);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:.2s}
+.tab.active{color:var(--verde-oscuro);border-bottom-color:var(--verde-claro);font-weight:600}
+
+/* Login */
+.login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:var(--verde-oscuro)}
+.login-card{background:#fff;border-radius:20px;padding:32px 24px;width:100%;max-width:380px}
+.login-logo{font-size:28px;font-weight:700;color:var(--verde-oscuro);text-align:center;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--gris-muted);text-align:center;margin-bottom:24px}
+.login-input{width:100%;padding:12px 14px;border:1px solid var(--borde-suave);border-radius:10px;font-size:14px;margin-bottom:12px;outline:none;font-family:'Inter',sans-serif}
+.login-input:focus{border-color:var(--verde-claro)}
+
+/* Botones */
+.btn-verde{width:100%;padding:13px;background:var(--verde-oscuro);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px}
+.btn-verde:active{opacity:.85}
+.btn-outline{width:100%;padding:11px;background:transparent;color:var(--verde-oscuro);border:1px solid var(--borde-suave);border-radius:10px;font-size:13px;cursor:pointer;margin-top:8px}
+.btn-rojo{background:var(--rojo-fondo);color:var(--rojo);border:1px solid var(--rojo);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer}
+
+/* Body */
+.body-pad{padding:16px}
+
+/* Cards */
+.card{background:#fff;border-radius:12px;border:1px solid var(--borde-suave);margin-bottom:10px;overflow:hidden}
+.resumen-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.res-card{background:#fff;border-radius:10px;border:1px solid var(--borde-suave);padding:12px;text-align:center}
+.res-num{font-size:20px;font-weight:700;color:var(--verde-oscuro)}
+.res-label{font-size:11px;color:var(--gris-muted);margin-top:2px}
+.seccion-title{font-size:12px;font-weight:600;color:var(--gris-muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px}
+
+/* Mesa */
+.mesa-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px}
+.mesa-card{border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;border:2px solid transparent;transition:.2s}
+.mesa-card.libre{background:#fff;border-color:var(--borde-suave)}
+.mesa-card.ocupada{background:var(--menta-fondo);border-color:var(--menta)}
+.mesa-card.ocupada .mesa-num{color:var(--verde-oscuro)}
+.mesa-num{font-size:18px;font-weight:700;color:var(--gris-muted)}
+.mesa-zona{font-size:10px;color:var(--gris-muted);margin-top:2px}
+.mesa-estado{font-size:10px;margin-top:4px;font-weight:500}
+
+/* Items pedido */
+.item-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--menta-fondo)}
+.item-qty{display:flex;align-items:center;gap:6px}
+.qty-btn{width:28px;height:28px;border-radius:50%;border:1px solid var(--borde-suave);background:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--verde-oscuro)}
+
+/* Cocina */
+.comanda{background:#fff;border-radius:12px;border:2px solid var(--borde-suave);margin-bottom:12px;overflow:hidden}
+.comanda.pendiente{border-color:#FCA5A5}
+.comanda.en_preparacion{border-color:#FCD34D}
+.comanda.listo{border-color:#6EE7B7}
+.comanda-header{padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
+.badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-pendiente{background:#FEE2E2;color:#B91C1C}
+.badge-prep{background:#FEF3C7;color:#92400E}
+.badge-listo{background:#D1FAE5;color:#065F46}
+.badge-agotado{background:#FEE2E2;color:#B91C1C}
+.badge-fds{background:#EDE9FE;color:#5B21B6}
+
+/* Menu item */
+.menu-item{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#fff;border-radius:10px;border:1px solid var(--borde-suave);margin-bottom:8px}
+.menu-item.agotado{opacity:.6}
+.menu-item-nombre{font-size:14px;font-weight:500;color:var(--verde-oscuro)}
+.menu-item-detalle{font-size:12px;color:var(--gris-muted);margin-top:2px}
+.toggle{position:relative;display:inline-block;width:42px;height:24px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:24px;transition:.3s}
+.toggle-slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+input:checked+.toggle-slider{background:var(--verde-claro)}
+input:checked+.toggle-slider:before{transform:translateX(18px)}
+
+/* Prot bar */
+.prot-bar-bg{height:6px;background:var(--menta-fondo);border-radius:3px;overflow:hidden}
+.prot-bar{height:6px;background:var(--verde-claro);border-radius:3px;transition:.3s}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;z-index:200}
+.modal-sheet{background:#fff;border-radius:20px 20px 0 0;padding:24px 20px;width:100%;max-height:85vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:600;color:var(--verde-oscuro);margin-bottom:16px}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--verde-oscuro);color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;z-index:300;white-space:nowrap}
+
+/* Inventario */
+.inv-item{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#fff;border-radius:10px;border:1px solid var(--borde-suave);margin-bottom:8px}
+.inv-stock{font-size:18px;font-weight:700}
+.inv-stock.ok{color:var(--verde-oscuro)}
+.inv-stock.bajo{color:var(--rojo)}
+
+/* Prediccion */
+.pred-table{width:100%;border-collapse:collapse}
+.pred-table th,.pred-table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--menta-fondo);font-size:13px}
+.pred-table th{font-size:11px;font-weight:600;color:var(--gris-muted);text-transform:uppercase}
+
+@media(prefers-color-scheme:dark){
+  :root{--fondo:#111827;--blanco:#1F2937;--borde-suave:#374151;--gris-muted:#9CA3AF;--menta-fondo:#1a2e23}
+  body{background:var(--fondo)}
+  .card,.res-card,.menu-item,.comanda,.inv-item{background:#1F2937;border-color:#374151}
+  .login-card{background:#1F2937}
+  .tabs,.nav+div{background:#1F2937}
+  .mapa-mesa.libre{background:#1F2937;border-color:#374151}
+  .mapa-zona{background:transparent;border-color:#374151}
+  .mesa-card.libre{background:#1F2937;border-color:#374151}
+  .login-input{background:#374151;border-color:#4B5563;color:#fff}
+}
+
+/* Mapa de mesas por zonas */
+.mapa{padding:8px 12px 16px}
+.mapa-leyenda{display:flex;gap:14px;font-size:11px;color:var(--gris-muted);margin:0 4px 8px}
+.mapa-leyenda .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px;border:1.5px solid var(--borde-suave)}
+.mapa-leyenda .dot.libre{background:#fff}
+.mapa-leyenda .dot.ocupada{background:var(--menta-fondo);border-color:var(--menta)}
+.mapa-zona{border:1.5px solid var(--borde-suave);border-radius:12px;padding:8px;background:rgba(255,255,255,.4);min-width:0}
+.mapa-zona-nombre{font-size:11px;font-weight:600;color:var(--verde-oscuro);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.mapa-afuera{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.mapa-fila{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.mapa-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.mapa-mesa{aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;border:2px solid var(--borde-suave);background:#fff;color:var(--gris-muted);transition:.15s;user-select:none}
+.mapa-mesa.pequena{aspect-ratio:1;transform:scale(.75)}
+.mapa-mesa.ocupada{background:var(--menta-fondo);border-color:var(--menta);color:var(--verde-oscuro)}
+.mapa-mesa:active{transform:scale(.94)}
+.mapa-mesa.pequena:active{transform:scale(.7)}
+.mapa-mesa.sin-datos{opacity:.35;cursor:default}
