@@ -17,7 +17,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok', service: 'admin-servic
 async function initDB() {
   await pool.query(`
     CREATE SCHEMA IF NOT EXISTS admin;
-    CREATE TABLE IF NOT EXISTS admin.meseros (
+    CREATE TABLE IF NOT EXISTS admin.usuarios (
       id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, usuario TEXT UNIQUE NOT NULL,
       password_hash TEXT, rol TEXT DEFAULT 'mesero', activo BOOLEAN DEFAULT true
     );
@@ -27,15 +27,15 @@ async function initDB() {
   `);
 
   const bcrypt = require('bcryptjs');
-  const { rows } = await pool.query("SELECT id FROM meseros WHERE rol='admin'");
+  const { rows } = await pool.query("SELECT id FROM usuarios WHERE rol='admin'");
   if (!rows.length) {
     const hash = await bcrypt.hash(process.env.CLAVE_ADMIN || '4carneone', 10);
     await pool.query(
-      "INSERT INTO meseros (nombre,usuario,password_hash,rol) VALUES ('Administrador','admin',$1,'admin') ON CONFLICT DO NOTHING",
+      "INSERT INTO usuarios (nombre,usuario,password_hash,rol) VALUES ('Administrador','admin',$1,'admin') ON CONFLICT DO NOTHING",
       [hash]
     );
     await pool.query(
-      "INSERT INTO meseros (nombre,usuario,password_hash,rol) VALUES ('Caja','caja',$1,'caja') ON CONFLICT DO NOTHING",
+      "INSERT INTO usuarios (nombre,usuario,password_hash,rol) VALUES ('Caja','caja',$1,'caja') ON CONFLICT DO NOTHING",
       [hash]
     );
   }

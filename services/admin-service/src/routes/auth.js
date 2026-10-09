@@ -6,7 +6,7 @@ const pool = require('../db/pool');
 router.post('/login', async (req, res) => {
   const { usuario, password } = req.body;
   try {
-    const { rows } = await pool.query('SELECT * FROM meseros WHERE usuario=$1 AND activo=true', [usuario]);
+    const { rows } = await pool.query('SELECT * FROM usuarios WHERE usuario=$1 AND activo=true', [usuario]);
     if (!rows.length) return res.status(401).json({ error: 'Credenciales inválidas' });
     const u = rows[0];
     if (u.rol === 'admin') {
