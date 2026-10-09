@@ -9,6 +9,11 @@ const INTERNAL_KEY = process.env.INTERNAL_KEY;
 
 const PORCIONES = { Carne: 115, Pechuga: 125, Cerdo: 115, Costillas: 150, Mojarra: 275, Trucha: 170 };
 
+// Total del pedido: suma de los precios de los ítems no anulados.
+const totalDe = (items) => (items || [])
+  .filter(i => !i.anulado)
+  .reduce((s, i) => s + (Number(i.precio) || 0), 0);
+
 let wss = null;
 router.setWss = (w) => { wss = w; };
 
@@ -41,9 +46,9 @@ router.post('/', auth, async (req, res) => {
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
-      `INSERT INTO pedidos (mesa_id, mesa_numero, zona, mesero_id, mesero_nombre, items, estado, comensales, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,'pendiente',$7,NOW()) RETURNING *`,
-      [mesa_id, mesa_numero, zona, req.user.id, req.user.nombre, JSON.stringify(items), comensales || 1]
+      `INSERT INTO pedidos (mesa_id, mesa_numero, zona, mesero_id, mesero_nombre, items, estado, comensales, total, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,'pendiente',$7,$8,NOW()) RETURNING *`,
+      [mesa_id, mesa_numero, zona, req.user.id, req.user.nombre, JSON.stringify(items), comensales || 1, totalDe(items)]
     );
     const pedido = rows[0];
     await client.query("UPDATE mesas SET estado='ocupada' WHERE id=$1", [mesa_id]);
@@ -85,7 +90,8 @@ router.patch('/:id/items', auth, async (req, res) => {
     const { items } = req.body;
     const { rows: curr } = await pool.query('SELECT items FROM pedidos WHERE id=$1', [req.params.id]);
     const nuevos = [...(curr[0].items || []), ...items];
-    const { rows } = await pool.query('UPDATE pedidos SET items=$1 WHERE id=$2 RETURNING *', [JSON.stringify(nuevos), req.params.id]);
+    const { rows } = await pool.query('UPDATE pedidos SET items=$1, total=$2 WHERE id=$3 RETURNING *',
+      [JSON.stringify(nuevos), totalDe(nuevos), req.params.id]);
     broadcast({ tipo: 'pedido_actualizado', pedido: rows[0] });
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -157,7 +163,8 @@ router.patch('/:id/anular-item', auth, async (req, res) => {
     const { rows: curr } = await pool.query('SELECT items FROM pedidos WHERE id=$1', [req.params.id]);
     const items = curr[0].items || [];
     items[item_index] = { ...items[item_index], anulado: true, motivo_anulacion: motivo };
-    const { rows } = await pool.query('UPDATE pedidos SET items=$1 WHERE id=$2 RETURNING *', [JSON.stringify(items), req.params.id]);
+    const { rows } = await pool.query('UPDATE pedidos SET items=$1, total=$2 WHERE id=$3 RETURNING *',
+      [JSON.stringify(items), totalDe(items), req.params.id]);
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
