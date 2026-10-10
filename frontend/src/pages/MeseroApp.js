@@ -62,7 +62,12 @@ export default function MeseroApp() {
   };
 
   const [bandeja, setBandeja] = useState(BANDEJAS[0]);
-  const agregar = (item) => setItems(prev => [...prev, nuevoItem(item)]);
+  const [verEnCocina, setVerEnCocina] = useState(false);
+  const agregar = (item) => {
+    const nuevo = nuevoItem(item);
+    setItems(prev => [...prev, nuevo]);
+    mostrarToast(`Agregado: ${nombreItem(nuevo)}`);
+  };
   const agregarBandeja = (proteina) => agregar({
     desc: `${bandeja.codigo} ${proteina}`, plato: bandeja.plato, proteina, precio: bandeja.precio });
   const esFinDeSemana = [0, 6].includes(hoy.getDay());
@@ -104,6 +109,9 @@ export default function MeseroApp() {
 
   const protDisp = PROTEINAS.filter(p => menu.proteinas?.[p] !== false);
   const totalActual = items.reduce((s,i) => s + i.precio, 0);
+  const vigentes = (p) => (p.items || []).filter(i => !i.anulado);
+  const totalEnCocina = pedidosMesa.reduce((s,p) => s + vigentes(p).reduce((a,i) => a + (i.precio || 0), 0), 0);
+  const platosEnCocina = pedidosMesa.reduce((s,p) => s + vigentes(p).length, 0);
 
   return (
     <div>
@@ -124,43 +132,87 @@ export default function MeseroApp() {
 
       {tab === 'pedido' && mesaActiva && (
         <div className="body-pad">
-          <button className="btn-outline" style={{marginBottom:12}} onClick={() => { setTab('mesas'); cargar(); }}>← Volver</button>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-            <div style={{fontSize:16,fontWeight:700,color:'var(--verde-oscuro)'}}>Mesa {mesaActiva.numero} — {mesaActiva.zona}</div>
-            <div style={{fontSize:12,color:'var(--gris-muted)'}}>
-              Comensales: <select value={comensales} onChange={e=>setComensales(+e.target.value)}
-                style={{border:'1px solid var(--borde-suave)',borderRadius:6,padding:'2px 6px',fontSize:12}}>
-                {[1,2,3,4,5,6,7,8].map(n=><option key={n}>{n}</option>)}
-              </select>
+          {/* ===== Cuenta de la mesa: fija arriba ===== */}
+          <div className="cuenta-panel">
+            <div className="cuenta-top">
+              <button className="cuenta-volver" onClick={() => { setTab('mesas'); cargar(); }}>←</button>
+              <div style={{flex:1,minWidth:0}}>
+                <div className="cuenta-mesa">Mesa {mesaActiva.numero}</div>
+                <div className="cuenta-zona">{mesaActiva.zona}</div>
+              </div>
+              <label className="cuenta-comensales">
+                👥
+                <select value={comensales} onChange={e=>setComensales(+e.target.value)}>
+                  {[1,2,3,4,5,6,7,8].map(n=><option key={n}>{n}</option>)}
+                </select>
+              </label>
             </div>
-          </div>
 
-          {/* Pedidos activos */}
-          {pedidosMesa.length > 0 && (
-            <>
-              <div className="seccion-title">Pedido activo</div>
-              {pedidosMesa.map(p => (
-                <div key={p.id} className="card" style={{padding:'10px 14px',marginBottom:8}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-                    <span className={`badge badge-${p.estado === 'listo' ? 'listo' : p.estado === 'en_preparacion' ? 'prep' : 'pendiente'}`}>
-                      {p.estado === 'listo' ? 'Listo' : p.estado === 'en_preparacion' ? 'En preparación' : 'Pendiente'}
-                    </span>
-                    {p.estado === 'listo' && (
-                      <button className="btn-verde" style={{width:'auto',padding:'6px 14px',fontSize:12,marginTop:0}}
-                        onClick={() => marcarPagada(p.id)}>Marcar pagada</button>
-                    )}
-                  </div>
-                  {(p.items||[]).map((it,idx) => it.anulado ? null : (
-                    <div key={idx} style={{display:'flex',alignItems:'center',fontSize:13,color:'var(--verde-oscuro)',padding:'4px 0',borderBottom:'1px solid var(--menta-fondo)'}}>
-                      <span style={{flex:1}}>{nombreItem(it)}</span>
-                      <span style={{fontSize:12,color:'var(--gris-muted)',marginRight:8}}>{fmt(it.precio)}</span>
-                      <button className="qty-btn" title="Quitar plato" onClick={() => quitarPlato(p, idx)}>✕</button>
+            <div className="cuenta-total">
+              <div>
+                <div className="cuenta-total-label">Total de la cuenta</div>
+                <div className="cuenta-total-sub">
+                  {platosEnCocina} en cocina{items.length > 0 ? ` · ${items.length} por enviar` : ''}
+                </div>
+              </div>
+              <div className="cuenta-total-valor">{fmt(totalEnCocina + totalActual)}</div>
+            </div>
+
+            {items.length > 0 && (
+              <div className="cuenta-bloque">
+                <div className="cuenta-bloque-titulo nuevo">Por enviar · {fmt(totalActual)}</div>
+                <div className="cuenta-lista">
+                  {items.map((it,i) => (
+                    <div key={it.key} className="cuenta-item">
+                      <span className="cuenta-item-nombre">{nombreItem(it)}</span>
+                      <span className="cuenta-item-precio">{fmt(it.precio)}</span>
+                      <button className="qty-btn" title="Quitar" onClick={() => setItems(p => p.filter((_,j)=>j!==i))}>✕</button>
                     </div>
                   ))}
                 </div>
-              ))}
-            </>
-          )}
+              </div>
+            )}
+
+            {pedidosMesa.length > 0 && (
+              <div className="cuenta-bloque">
+                <button className="cuenta-bloque-titulo plegable" onClick={() => setVerEnCocina(v => !v)}>
+                  <span>En cocina · {fmt(totalEnCocina)}</span>
+                  <span>{verEnCocina ? '▴' : '▾'}</span>
+                </button>
+                {verEnCocina && pedidosMesa.map(p => (
+                  <div key={p.id} style={{marginBottom:6}}>
+                    <span className={`badge badge-${p.estado === 'listo' ? 'listo' : p.estado === 'en_preparacion' ? 'prep' : 'pendiente'}`}>
+                      {p.estado === 'listo' ? 'Listo' : p.estado === 'en_preparacion' ? 'En preparación' : 'Pendiente'}
+                    </span>
+                    <div className="cuenta-lista">
+                      {(p.items||[]).map((it,idx) => it.anulado ? null : (
+                        <div key={idx} className="cuenta-item">
+                          <span className="cuenta-item-nombre">{nombreItem(it)}</span>
+                          <span className="cuenta-item-precio">{fmt(it.precio)}</span>
+                          <button className="qty-btn" title="Quitar plato" onClick={() => quitarPlato(p, idx)}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {items.length > 0 && (
+              <button className="btn-verde cuenta-enviar" onClick={enviarPedido}>
+                Enviar a cocina · {fmt(totalActual)}
+              </button>
+            )}
+            {items.length === 0 && pedidosMesa.some(p => p.estado === 'listo') && (
+              <button className="btn-verde cuenta-enviar"
+                onClick={() => marcarPagada(pedidosMesa.find(p => p.estado === 'listo').id)}>
+                Marcar pagada · {fmt(totalEnCocina)}
+              </button>
+            )}
+            {items.length === 0 && pedidosMesa.length === 0 && (
+              <div className="cuenta-vacia">Toca un plato abajo para empezar la cuenta</div>
+            )}
+          </div>
 
           {/* Agregar nuevos platos */}
           <div className="seccion-title">Agregar platos</div>
@@ -221,28 +273,6 @@ export default function MeseroApp() {
             </div>
           </div>
 
-          {items.length > 0 && (
-            <div className="card" style={{padding:'10px 14px',marginBottom:10}}>
-              <div className="seccion-title" style={{marginTop:0}}>Resumen</div>
-              {items.map((it,i) => (
-                <div key={i} className="item-row">
-                  <span style={{flex:1,fontSize:13}}>{nombreItem(it)}</span>
-                  <span style={{fontSize:13,color:'var(--gris-muted)'}}>{fmt(it.precio)}</span>
-                  <button className="qty-btn" onClick={() => setItems(p => p.filter((_,j)=>j!==i))}>✕</button>
-                </div>
-              ))}
-              <div style={{display:'flex',justifyContent:'space-between',marginTop:8,paddingTop:8,borderTop:'1px solid var(--borde-suave)'}}>
-                <span style={{fontSize:13,fontWeight:600}}>Total estimado</span>
-                <span style={{fontSize:13,fontWeight:700,color:'var(--verde-oscuro)'}}>{fmt(totalActual)}</span>
-              </div>
-            </div>
-          )}
-
-          {items.length > 0 && (
-            <button className="btn-verde" onClick={enviarPedido}>
-              Enviar a cocina ({items.length} plato{items.length!==1?'s':''})
-            </button>
-          )}
         </div>
       )}
     </div>

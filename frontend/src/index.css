@@ -140,3 +140,32 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
 .mapa-mesa:active{transform:scale(.94)}
 .mapa-mesa.pequena:active{transform:scale(.7)}
 .mapa-mesa.sin-datos{opacity:.35;cursor:default}
+/* ===== Cuenta de la mesa (pantalla del mesero) ===== */
+.cuenta-panel{position:sticky;top:0;z-index:20;margin:-4px -4px 14px;padding:12px 14px;
+  background:var(--blanco);border:1px solid var(--borde-suave);border-radius:14px;
+  box-shadow:0 6px 18px rgba(27,67,50,.10)}
+.cuenta-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.cuenta-volver{width:34px;height:34px;border-radius:10px;border:1px solid var(--borde-suave);
+  background:var(--menta-fondo);color:var(--verde-oscuro);font-size:16px;cursor:pointer}
+.cuenta-mesa{font-size:17px;font-weight:700;color:var(--verde-oscuro);line-height:1.1}
+.cuenta-zona{font-size:11px;color:var(--gris-muted);text-transform:capitalize}
+.cuenta-comensales{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--gris-muted)}
+.cuenta-comensales select{border:1px solid var(--borde-suave);border-radius:8px;padding:3px 6px;font-size:13px;background:var(--blanco);color:inherit}
+.cuenta-total{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;
+  border-radius:10px;background:var(--verde-oscuro);color:#fff}
+.cuenta-total-label{font-size:12px;opacity:.85}
+.cuenta-total-sub{font-size:11px;opacity:.7;margin-top:2px}
+.cuenta-total-valor{font-size:22px;font-weight:800;letter-spacing:-.3px}
+.cuenta-bloque{margin-top:10px}
+.cuenta-bloque-titulo{display:flex;justify-content:space-between;width:100%;font-size:11px;font-weight:700;
+  letter-spacing:.4px;text-transform:uppercase;color:var(--gris-muted);margin-bottom:4px;
+  background:none;border:none;padding:0}
+.cuenta-bloque-titulo.nuevo{color:var(--verde-claro)}
+.cuenta-bloque-titulo.plegable{cursor:pointer}
+.cuenta-lista{max-height:150px;overflow-y:auto}
+.cuenta-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--menta-fondo);font-size:13px}
+.cuenta-item:last-child{border-bottom:none}
+.cuenta-item-nombre{flex:1;color:var(--verde-oscuro)}
+.cuenta-item-precio{color:var(--gris-muted);font-size:12px}
+.cuenta-enviar{margin-top:10px !important}
+.cuenta-vacia{margin-top:8px;font-size:12px;color:var(--gris-muted);text-align:center}
