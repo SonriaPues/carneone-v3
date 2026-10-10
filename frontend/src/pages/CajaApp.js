@@ -5,7 +5,7 @@ const fmt = n => '$' + (n||0).toLocaleString('es-CO');
 const hoy = new Date(); const dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 
 export default function CajaApp() {
-  const { user, logout, fetchPedidosActivos, pagarPedido, mostrarToast } = useApp();
+  const { user, logout, fetchPedidosActivos, pagarPedido, mostrarToast, anularItem } = useApp();
   const [pedidos, setPedidos] = useState([]);
 
   useEffect(() => { cargar(); const t = setInterval(cargar, 10000); return () => clearInterval(t); }, []);
@@ -18,6 +18,21 @@ export default function CajaApp() {
     try { await pagarPedido(id); mostrarToast('Cobrado ✓'); cargar(); }
     catch { mostrarToast('Error'); }
   };
+
+  const nombreItem = (it) => it.desc || [it.proteina, it.plato].filter(Boolean).join(' — ');
+  const quitarPlato = async (pedido, idx) => {
+    const motivo = window.prompt(`¿Quitar "${nombreItem(pedido.items[idx])}" de la mesa ${pedido.mesa_numero}? Escribe el motivo:`, 'Devuelto por el cliente');
+    if (motivo === null) return;
+    try { await anularItem(pedido.id, idx, motivo); mostrarToast('Plato quitado ✓'); cargar(); }
+    catch (e) { mostrarToast(e.response?.data?.error || 'No se pudo quitar'); }
+  };
+  const ListaPlatos = ({ p }) => (p.items||[]).map((it,idx) => it.anulado ? null : (
+    <div key={idx} style={{display:'flex',alignItems:'center',fontSize:13,padding:'3px 0'}}>
+      <span style={{flex:1}}>{nombreItem(it)}</span>
+      <span style={{color:'var(--gris-muted)',marginRight:8}}>{fmt(it.precio)}</span>
+      <button className="qty-btn" title="Quitar plato" onClick={() => quitarPlato(p, idx)}>✕</button>
+    </div>
+  ));
 
   const listos = pedidos.filter(p => p.estado === 'listo' || p.estado === 'entregado');
   const enServicio = pedidos.filter(p => !['listo','entregado','pagado'].includes(p.estado));
@@ -44,11 +59,7 @@ export default function CajaApp() {
                   <div style={{fontSize:12,color:'var(--gris-muted)',marginBottom:8}}>
                     {p.mesero_nombre} · {(p.items||[]).filter(i=>!i.anulado).length} platos
                   </div>
-                  {(p.items||[]).filter(i=>!i.anulado).map((it,i)=>(
-                    <div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:13,padding:'3px 0'}}>
-                      <span>{it.desc || [it.proteina, it.plato].filter(Boolean).join(' — ')}</span><span style={{color:'var(--gris-muted)'}}>{fmt(it.precio)}</span>
-                    </div>
-                  ))}
+                  <ListaPlatos p={p} />
                   <button className="btn-verde" style={{marginTop:10,padding:'9px'}} onClick={() => cobrar(p.id)}>
                     Cobrar mesa
                   </button>
@@ -74,6 +85,7 @@ export default function CajaApp() {
                       </span>
                     </div>
                   </div>
+                  <div style={{marginTop:6}}><ListaPlatos p={p} /></div>
                 </div>
               );
             })}

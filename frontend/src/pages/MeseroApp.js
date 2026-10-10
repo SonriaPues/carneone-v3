@@ -33,7 +33,7 @@ const fmt = n => '$' + (n||0).toLocaleString('es-CO');
 const hoy = new Date(); const dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 
 export default function MeseroApp() {
-  const { user, logout, fetchMesas, fetchMenu, crearPedido, pagarPedido, agregarItems, fetchPedidosMesa, mostrarToast } = useApp();
+  const { user, logout, fetchMesas, fetchMenu, crearPedido, pagarPedido, agregarItems, fetchPedidosMesa, mostrarToast, anularItem } = useApp();
   const [mesas, setMesas]     = useState([]);
   const [menu, setMenu]       = useState({ proteinas:{}, platos:{} });
   const [mesaActiva, setMesaActiva] = useState(null);
@@ -83,6 +83,18 @@ export default function MeseroApp() {
       const p = await fetchPedidosMesa(mesaActiva.id);
       setPedidosMesa(p);
     } catch (e) { mostrarToast('Error al enviar pedido'); }
+  };
+
+  const quitarPlato = async (pedido, idx) => {
+    const it = pedido.items[idx];
+    const motivo = window.prompt(`¿Quitar "${nombreItem(it)}"? Escribe el motivo:`, 'Error al tomar el pedido');
+    if (motivo === null) return;
+    try {
+      await anularItem(pedido.id, idx, motivo);
+      mostrarToast('Plato quitado ✓');
+      const p = await fetchPedidosMesa(mesaActiva.id);
+      setPedidosMesa(p); cargar();
+    } catch (e) { mostrarToast(e.response?.data?.error || 'No se pudo quitar'); }
   };
 
   const marcarPagada = async (pedido_id) => {
@@ -138,9 +150,11 @@ export default function MeseroApp() {
                         onClick={() => marcarPagada(p.id)}>Marcar pagada</button>
                     )}
                   </div>
-                  {(p.items||[]).filter(i=>!i.anulado).map((it,idx) => (
-                    <div key={idx} style={{fontSize:13,color:'var(--verde-oscuro)',padding:'4px 0',borderBottom:'1px solid var(--menta-fondo)'}}>
-                      {nombreItem(it)}
+                  {(p.items||[]).map((it,idx) => it.anulado ? null : (
+                    <div key={idx} style={{display:'flex',alignItems:'center',fontSize:13,color:'var(--verde-oscuro)',padding:'4px 0',borderBottom:'1px solid var(--menta-fondo)'}}>
+                      <span style={{flex:1}}>{nombreItem(it)}</span>
+                      <span style={{fontSize:12,color:'var(--gris-muted)',marginRight:8}}>{fmt(it.precio)}</span>
+                      <button className="qty-btn" title="Quitar plato" onClick={() => quitarPlato(p, idx)}>✕</button>
                     </div>
                   ))}
                 </div>

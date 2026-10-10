@@ -63,7 +63,7 @@ router.post('/', auth, async (req, res) => {
 
 router.get('/activos', auth, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT * FROM pedidos WHERE estado != 'pagado' ORDER BY created_at ASC");
+    const { rows } = await pool.query("SELECT * FROM pedidos WHERE estado NOT IN ('pagado','cancelado') ORDER BY created_at ASC");
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -71,7 +71,7 @@ router.get('/activos', auth, async (req, res) => {
 router.get('/mesa/:mesa_id', auth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT * FROM pedidos WHERE mesa_id=$1 AND estado != 'pagado' ORDER BY created_at ASC",
+      "SELECT * FROM pedidos WHERE mesa_id=$1 AND estado NOT IN ('pagado','cancelado') ORDER BY created_at ASC",
       [req.params.mesa_id]
     );
     res.json(rows);
@@ -113,7 +113,9 @@ router.patch('/:id/entregar', auth, async (req, res) => {
     const pedido = rows[0];
 
     const descuentos = [];
-    for (const item of (pedido.items || [])) {
+    // Solo los platos no anulados se descuentan y pasan al histórico.
+    const vigentes = (pedido.items || []).filter(i => !i.anulado);
+    for (const item of vigentes) {
       const gramos = PORCIONES[item.proteina];
       if (item.proteina && gramos) descuentos.push({ proteina: item.proteina, gramos });
     }
@@ -134,7 +136,7 @@ router.patch('/:id/entregar', auth, async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
        ON CONFLICT DO NOTHING`,
       [pedido.mesa_numero, pedido.zona, pedido.mesero_id, pedido.mesero_nombre,
-        JSON.stringify(pedido.items), pedido.total || 0, pedido.created_at]
+        JSON.stringify(vigentes), totalDe(vigentes), pedido.created_at]
     );
     broadcast({ tipo: 'pedido_entregado', pedido });
     res.json(pedido);
@@ -148,7 +150,7 @@ router.patch('/:id/pagar', auth, async (req, res) => {
     await client.query('BEGIN');
     const { rows } = await client.query("UPDATE pedidos SET estado='pagado' WHERE id=$1 RETURNING *", [req.params.id]);
     const { rows: activos } = await client.query(
-      "SELECT id FROM pedidos WHERE mesa_id=$1 AND estado NOT IN ('pagado')",
+      "SELECT id FROM pedidos WHERE mesa_id=$1 AND estado NOT IN ('pagado','cancelado')",
       [rows[0].mesa_id]
     );
     if (!activos.length) await client.query("UPDATE mesas SET estado='libre' WHERE id=$1", [rows[0].mesa_id]);
@@ -159,16 +161,35 @@ router.patch('/:id/pagar', auth, async (req, res) => {
   finally { client.release(); }
 });
 
+// Anular un plato (mesero o caja). Si se anulan todos, el pedido queda
+// 'cancelado' y, si la mesa no tiene otro pedido activo, se libera.
+// No se reversa inventario: si el plato ya se entregó, la carne ya se usó.
 router.patch('/:id/anular-item', auth, async (req, res) => {
+  const client = await pool.connect();
   try {
     const { item_index, motivo } = req.body;
-    const { rows: curr } = await pool.query('SELECT items FROM pedidos WHERE id=$1', [req.params.id]);
+    await client.query('BEGIN');
+    const { rows: curr } = await client.query('SELECT * FROM pedidos WHERE id=$1 FOR UPDATE', [req.params.id]);
+    if (!curr.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Pedido no encontrado' }); }
+    if (curr[0].estado === 'pagado') { await client.query('ROLLBACK'); return res.status(409).json({ error: 'El pedido ya fue pagado' }); }
     const items = curr[0].items || [];
-    items[item_index] = { ...items[item_index], anulado: true, motivo_anulacion: motivo };
-    const { rows } = await pool.query('UPDATE pedidos SET items=$1, total=$2 WHERE id=$3 RETURNING *',
+    if (!items[item_index]) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Plato no encontrado' }); }
+    items[item_index] = { ...items[item_index], anulado: true, motivo_anulacion: motivo || '',
+                          anulado_por: req.user?.nombre || null, anulado_en: new Date().toISOString() };
+    const todosAnulados = items.every(i => i.anulado);
+    const { rows } = await client.query(
+      `UPDATE pedidos SET items=$1, total=$2${todosAnulados ? ", estado='cancelado', cerrado_en=NOW()" : ''} WHERE id=$3 RETURNING *`,
       [JSON.stringify(items), totalDe(items), req.params.id]);
+    if (todosAnulados) {
+      const { rows: activos } = await client.query(
+        "SELECT id FROM pedidos WHERE mesa_id=$1 AND estado NOT IN ('pagado','cancelado')", [rows[0].mesa_id]);
+      if (!activos.length) await client.query("UPDATE mesas SET estado='libre' WHERE id=$1", [rows[0].mesa_id]);
+    }
+    await client.query('COMMIT');
+    broadcast({ tipo: 'pedido_actualizado', pedido: rows[0] });
     res.json(rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { await client.query('ROLLBACK'); res.status(500).json({ error: e.message }); }
+  finally { client.release(); }
 });
 
 // --- Endpoint interno (numeral 3.2/3.3): consumido por admin-service

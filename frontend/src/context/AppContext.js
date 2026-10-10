@@ -48,6 +48,7 @@ export function AppProvider({ children }) {
   const entregarPedido = (id) => axios.patch(`${API}/api/pedidos/${id}/entregar`, {}, hdr()).then(r => r.data);
   const pagarPedido   = (id) => axios.patch(`${API}/api/pedidos/${id}/pagar`, {}, hdr()).then(r => r.data);
   const agregarItems  = (id, items) => axios.patch(`${API}/api/pedidos/${id}/items`, { items }, hdr()).then(r => r.data);
+  const anularItem    = (id, item_index, motivo) => axios.patch(`${API}/api/pedidos/${id}/anular-item`, { item_index, motivo }, hdr()).then(r => r.data);
   const fetchPedidosMesa = (mesa_id) => axios.get(`${API}/api/pedidos/mesa/${mesa_id}`, hdr()).then(r => r.data);
 
   const fetchInventario = () => axios.get(`${API}/api/inventario`, hdr()).then(r => r.data);
@@ -61,7 +62,7 @@ export function AppProvider({ children }) {
 
   return (
     <Ctx.Provider value={{
-      user, menu, toast, login, logout, mostrarToast,
+      user, menu, toast, login, logout, mostrarToast, anularItem,
       fetchMesas, fetchMenu, actualizarMenu,
       fetchHistorico, fetchMeseros, crearMesero, editarMesero, eliminarMesero,
       fetchPedidosActivos, crearPedido, actualizarEstadoPedido, entregarPedido, pagarPedido, agregarItems, fetchPedidosMesa,
