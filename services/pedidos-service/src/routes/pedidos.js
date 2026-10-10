@@ -32,7 +32,9 @@ router.post('/', auth, async (req, res) => {
     if (r.ok) {
       const menu = await r.json();
       const proteinasHabilitadas = Object.entries(menu.proteinas || {}).filter(([, v]) => v).map(([k]) => k);
-      const invalidos = (items || []).filter(it => proteinasHabilitadas.length && !proteinasHabilitadas.includes(it.proteina));
+      // Solo se validan los ítems con proteína (bandejas); el almuerzo del día,
+      // los platos de fin de semana y los adicionales no llevan proteína.
+      const invalidos = (items || []).filter(it => it.proteina && proteinasHabilitadas.length && !proteinasHabilitadas.includes(it.proteina));
       if (invalidos.length) {
         return res.status(409).json({ error: `Proteína no disponible en el menú: ${invalidos.map(i => i.proteina).join(', ')}` });
       }

@@ -81,8 +81,8 @@ export default function CocinaApp() {
           {(p.items||[]).filter(i=>!i.anulado).map((it,i) => (
             <div key={i} style={{fontSize:14,padding:'5px 0',borderBottom:'1px solid var(--menta-fondo)',
               display:'flex',justifyContent:'space-between'}}>
-              <span style={{color:'var(--verde-oscuro)',fontWeight:500}}>{it.proteina}</span>
-              <span style={{color:'var(--gris-muted)',fontSize:12}}>{it.plato}</span>
+              <span style={{color:'var(--verde-oscuro)',fontWeight:500}}>{it.proteina || it.desc || it.plato}</span>
+              <span style={{color:'var(--gris-muted)',fontSize:12}}>{it.proteina ? it.plato : ''}</span>
             </div>
           ))}
           <div style={{fontSize:11,color:'var(--gris-muted)',marginTop:6}}>

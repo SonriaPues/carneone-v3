@@ -4,8 +4,31 @@ import MapaMesas from '../components/MapaMesas';
 
 const API = process.env.REACT_APP_API_URL || '';
 const PROTEINAS = ['Carne','Pechuga','Cerdo','Costillas','Mojarra','Trucha'];
-const PLATOS = ['Almuerzo del día','Bandeja con sopa','Bandeja sin sopa'];
-const PLATOS_FDS = ['Frijolada','Arroz Carneone'];
+// Menú real (precios en COP). La bandeja lleva proteína y se descuenta del
+// inventario; el almuerzo del día, los platos de fin de semana y los
+// adicionales no llevan proteína de inventario.
+const BANDEJAS = [
+  { plato: 'Bandeja con sopa', codigo: 'Combo', precio: 17000 },
+  { plato: 'Bandeja sin sopa', codigo: 'Media', precio: 16000 },
+];
+const ALMUERZO = { plato: 'Almuerzo del día', desc: 'Alm', precio: 15000 };
+const PLATOS_FDS = [
+  { plato: 'Frijolada', desc: 'Frijolada', precio: 19000 },
+  { plato: 'Arroz Carneone', desc: 'Arroz Carneone', precio: 19000 },
+];
+const ADICIONALES = [
+  { desc: 'Porc. arroz', precio: 3000 }, { desc: 'Porc. plátano', precio: 3000 },
+  { desc: 'Porc. principio', precio: 3000 }, { desc: 'Porc. ensalada', precio: 3000 },
+  { desc: 'Porc. papa francesa', precio: 6000 }, { desc: 'Sopa adicional', precio: 6000 },
+  { desc: 'Porc. carne', precio: 6000 }, { desc: 'Porc. pechuga', precio: 6000 },
+  { desc: 'Porc. cerdo', precio: 6000 }, { desc: 'Porc. proteína', precio: 8000 },
+  { desc: 'Huevo adicional', precio: 1000 }, { desc: 'Bebida adicional', precio: 1000 },
+];
+const claveMenu = (plato) => plato.toLowerCase().replace(/ /g, '_');
+let _n = 0;
+const nuevoItem = ({ desc, plato, proteina = null, precio, adicional = false }) =>
+  ({ key: `${Date.now()}-${_n++}`, desc, plato: plato || desc, proteina, precio, ...(adicional ? { adicional: true } : {}) });
+const nombreItem = (it) => it.desc || [it.proteina, it.plato].filter(Boolean).join(' — ');
 const fmt = n => '$' + (n||0).toLocaleString('es-CO');
 const hoy = new Date(); const dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 
@@ -38,16 +61,12 @@ export default function MeseroApp() {
     setTab('pedido');
   };
 
-  const toggleItem = (proteina, plato) => {
-    const key = `${proteina}|${plato}`;
-    setItems(prev => {
-      const idx = prev.findIndex(i => i.key === key);
-      if (idx >= 0) {
-        const nuevo = [...prev]; nuevo.splice(idx,1); return nuevo;
-      }
-      return [...prev, { key, proteina, plato, precio: 14000 }];
-    });
-  };
+  const [bandeja, setBandeja] = useState(BANDEJAS[0]);
+  const agregar = (item) => setItems(prev => [...prev, nuevoItem(item)]);
+  const agregarBandeja = (proteina) => agregar({
+    desc: `${bandeja.codigo} ${proteina}`, plato: bandeja.plato, proteina, precio: bandeja.precio });
+  const esFinDeSemana = [0, 6].includes(hoy.getDay());
+  const platoDisp = (plato) => menu.platos?.[claveMenu(plato)] !== false;
 
   const enviarPedido = async () => {
     if (!items.length) return mostrarToast('Agrega al menos un plato');
@@ -121,7 +140,7 @@ export default function MeseroApp() {
                   </div>
                   {(p.items||[]).filter(i=>!i.anulado).map((it,idx) => (
                     <div key={idx} style={{fontSize:13,color:'var(--verde-oscuro)',padding:'4px 0',borderBottom:'1px solid var(--menta-fondo)'}}>
-                      {it.proteina} — {it.plato}
+                      {nombreItem(it)}
                     </div>
                   ))}
                 </div>
@@ -132,23 +151,57 @@ export default function MeseroApp() {
           {/* Agregar nuevos platos */}
           <div className="seccion-title">Agregar platos</div>
           <div className="card" style={{padding:'10px 14px',marginBottom:10}}>
-            <div style={{fontSize:12,fontWeight:600,color:'var(--gris-muted)',marginBottom:8}}>PROTEÍNA</div>
-            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12}}>
-              {protDisp.map(p => {
-                const sel = items.some(i => i.proteina === p);
+            {/* Bandeja: tipo + proteína */}
+            <div style={{fontSize:12,fontWeight:600,color:'var(--gris-muted)',marginBottom:8}}>BANDEJA</div>
+            <div style={{display:'flex',gap:6,marginBottom:10}}>
+              {BANDEJAS.filter(b => platoDisp(b.plato)).map(b => {
+                const sel = bandeja.plato === b.plato;
                 return (
-                  <button key={p} onClick={() => toggleItem(p, 'Almuerzo del día')}
-                    style={{padding:'7px 14px',borderRadius:20,border:`1px solid ${sel?'var(--verde-claro)':'var(--borde-suave)'}`,
+                  <button key={b.plato} onClick={() => setBandeja(b)}
+                    style={{flex:1,padding:'7px 10px',borderRadius:8,border:`1px solid ${sel?'var(--verde-claro)':'var(--borde-suave)'}`,
                       background:sel?'var(--menta-fondo)':'#fff',color:sel?'var(--verde-oscuro)':'var(--gris-muted)',
-                      fontSize:13,cursor:'pointer',fontWeight:sel?600:400}}>
-                    {p}
+                      fontSize:12,cursor:'pointer',fontWeight:sel?600:400}}>
+                    {b.plato} · {fmt(b.precio)}
                   </button>
                 );
               })}
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:14}}>
+              {protDisp.map(p => (
+                <button key={p} onClick={() => agregarBandeja(p)}
+                  style={{padding:'7px 14px',borderRadius:20,border:'1px solid var(--borde-suave)',
+                    background:'#fff',color:'var(--verde-oscuro)',fontSize:13,cursor:'pointer'}}>
+                  + {p}
+                </button>
+              ))}
               {menu.proteinas && Object.keys(menu.proteinas).filter(k=>menu.proteinas[k]===false).map(p=>(
                 <button key={p} disabled style={{padding:'7px 14px',borderRadius:20,border:'1px solid var(--borde-suave)',
                   background:'var(--rojo-fondo)',color:'var(--rojo)',fontSize:13,opacity:.6}}>
                   {p} — Agotado
+                </button>
+              ))}
+            </div>
+
+            {/* Almuerzo del día y platos de fin de semana */}
+            <div style={{fontSize:12,fontWeight:600,color:'var(--gris-muted)',marginBottom:8}}>OTROS PLATOS</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:14}}>
+              {[ALMUERZO, ...(esFinDeSemana ? PLATOS_FDS : [])].filter(pl => platoDisp(pl.plato)).map(pl => (
+                <button key={pl.plato} onClick={() => agregar(pl)}
+                  style={{padding:'7px 14px',borderRadius:20,border:'1px solid var(--borde-suave)',
+                    background:'#fff',color:'var(--verde-oscuro)',fontSize:13,cursor:'pointer'}}>
+                  + {pl.plato} · {fmt(pl.precio)}
+                </button>
+              ))}
+            </div>
+
+            {/* Adicionales */}
+            <div style={{fontSize:12,fontWeight:600,color:'var(--gris-muted)',marginBottom:8}}>ADICIONALES</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {ADICIONALES.map(ad => (
+                <button key={ad.desc} onClick={() => agregar({ ...ad, adicional: true })}
+                  style={{padding:'5px 10px',borderRadius:20,border:'1px solid var(--borde-suave)',
+                    background:'#fff',color:'var(--gris-muted)',fontSize:12,cursor:'pointer'}}>
+                  + {ad.desc} · {fmt(ad.precio)}
                 </button>
               ))}
             </div>
@@ -159,7 +212,7 @@ export default function MeseroApp() {
               <div className="seccion-title" style={{marginTop:0}}>Resumen</div>
               {items.map((it,i) => (
                 <div key={i} className="item-row">
-                  <span style={{flex:1,fontSize:13}}>{it.proteina}</span>
+                  <span style={{flex:1,fontSize:13}}>{nombreItem(it)}</span>
                   <span style={{fontSize:13,color:'var(--gris-muted)'}}>{fmt(it.precio)}</span>
                   <button className="qty-btn" onClick={() => setItems(p => p.filter((_,j)=>j!==i))}>✕</button>
                 </div>

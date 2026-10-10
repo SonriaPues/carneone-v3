@@ -46,7 +46,7 @@ export default function CajaApp() {
                   </div>
                   {(p.items||[]).filter(i=>!i.anulado).map((it,i)=>(
                     <div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:13,padding:'3px 0'}}>
-                      <span>{it.proteina}</span><span style={{color:'var(--gris-muted)'}}>{fmt(it.precio)}</span>
+                      <span>{it.desc || [it.proteina, it.plato].filter(Boolean).join(' — ')}</span><span style={{color:'var(--gris-muted)'}}>{fmt(it.precio)}</span>
                     </div>
                   ))}
                   <button className="btn-verde" style={{marginTop:10,padding:'9px'}} onClick={() => cobrar(p.id)}>
