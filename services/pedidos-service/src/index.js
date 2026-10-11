@@ -17,6 +17,9 @@ app.use('/', pedidosRouter);
 
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'pedidos-service', version: '4.0.0' }));
 
+// Registrar, sin detener el servicio, cualquier error asíncrono no manejado.
+process.on('unhandledRejection', (e) => console.error('Error no manejado:', e?.message || e));
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws/cocina' });
 pedidosRouter.setWss(wss);

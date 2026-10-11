@@ -44,7 +44,9 @@ router.post('/', auth, async (req, res) => {
     // operación que la validación de menú (RNF de disponibilidad, numeral 1.5.1).
   } catch { /* admin-service no disponible: continuar sin bloquear */ }
 
-  const client = await pool.connect();
+  let client;
+  try { client = await pool.connect(); }
+  catch (e) { return res.status(503).json({ error: 'Base de datos ocupada, intente de nuevo' }); }
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
@@ -103,7 +105,9 @@ router.patch('/:id/items', auth, async (req, res) => {
 // Inventario por REST (numeral 3.2), nunca escribiendo directamente sobre su
 // esquema `inventario`.
 router.patch('/:id/entregar', auth, async (req, res) => {
-  const client = await pool.connect();
+  let client;
+  try { client = await pool.connect(); }
+  catch (e) { return res.status(503).json({ error: 'Base de datos ocupada, intente de nuevo' }); }
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
@@ -145,7 +149,9 @@ router.patch('/:id/entregar', auth, async (req, res) => {
 });
 
 router.patch('/:id/pagar', auth, async (req, res) => {
-  const client = await pool.connect();
+  let client;
+  try { client = await pool.connect(); }
+  catch (e) { return res.status(503).json({ error: 'Base de datos ocupada, intente de nuevo' }); }
   try {
     await client.query('BEGIN');
     const { rows } = await client.query("UPDATE pedidos SET estado='pagado' WHERE id=$1 RETURNING *", [req.params.id]);
@@ -165,7 +171,9 @@ router.patch('/:id/pagar', auth, async (req, res) => {
 // 'cancelado' y, si la mesa no tiene otro pedido activo, se libera.
 // No se reversa inventario: si el plato ya se entregó, la carne ya se usó.
 router.patch('/:id/anular-item', auth, async (req, res) => {
-  const client = await pool.connect();
+  let client;
+  try { client = await pool.connect(); }
+  catch (e) { return res.status(503).json({ error: 'Base de datos ocupada, intente de nuevo' }); }
   try {
     const { item_index, motivo } = req.body;
     await client.query('BEGIN');
