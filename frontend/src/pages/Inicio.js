@@ -17,7 +17,7 @@ export default function Inicio() {
   return (
     <div className="login-wrap">
       <div className="login-card">
-        <div className="login-logo">🥩 Carneone</div>
+        <div className="login-logo">Carneone</div>
         <div className="login-sub">Sistema de gestión v3.0</div>
         <input className="login-input" placeholder="Usuario" value={form.usuario}
           onChange={e => setForm(p => ({ ...p, usuario: e.target.value }))} autoCapitalize="none"/>
