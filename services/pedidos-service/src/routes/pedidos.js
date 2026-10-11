@@ -28,7 +28,7 @@ const broadcast = (data) => {
 router.post('/', auth, async (req, res) => {
   const { mesa_id, mesa_numero, zona, items, comensales } = req.body;
   try {
-    const r = await fetch(`${ADMIN_URL}/internal/vigente`, { headers: { 'x-internal-key': INTERNAL_KEY } });
+    const r = await fetch(`${ADMIN_URL}/api/menu/internal/vigente`, { headers: { 'x-internal-key': INTERNAL_KEY } });
     if (r.ok) {
       const menu = await r.json();
       const proteinasHabilitadas = Object.entries(menu.proteinas || {}).filter(([, v]) => v).map(([k]) => k);
