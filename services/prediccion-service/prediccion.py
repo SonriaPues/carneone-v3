@@ -1,5 +1,6 @@
 import os, json
 from datetime import datetime, date
+from zoneinfo import ZoneInfo
 from collections import defaultdict
 import requests
 import psycopg2, psycopg2.extras
@@ -14,6 +15,18 @@ PEDIDOS_URL = os.getenv('PEDIDOS_URL', 'http://localhost:4001')
 INVENTARIO_URL = os.getenv('INVENTARIO_URL', 'http://localhost:4002')
 INTERNAL_KEY = os.getenv('INTERNAL_KEY', '')
 INTERNAL_HEADERS = {'x-internal-key': INTERNAL_KEY}
+TZ = ZoneInfo('America/Bogota')
+
+
+def dia_local(valor):
+    """Fecha de cierre en hora de Bogotá. Los turnos llegan en UTC; sin
+    convertir, un pedido cerrado después de las 7:00 p. m. caía en el día
+    siguiente y contaminaba el entrenamiento."""
+    if isinstance(valor, str):
+        valor = datetime.fromisoformat(valor.replace('Z', '+00:00'))
+    if valor.tzinfo is None:
+        valor = valor.replace(tzinfo=ZoneInfo('UTC'))
+    return valor.astimezone(TZ).strftime('%Y-%m-%d')
 
 
 def get_conn():
@@ -52,11 +65,11 @@ def construir_dataset(turnos):
         cerrado = t.get('cerrado_en')
         if not cerrado:
             continue
-        if isinstance(cerrado, str):
-            cerrado = datetime.fromisoformat(cerrado.replace('Z', '+00:00'))
-        dia_key = cerrado.strftime('%Y-%m-%d')
+        dia_key = dia_local(cerrado)
         items = t['items'] if isinstance(t['items'], list) else json.loads(t['items'] or '[]')
         for item in items:
+            if item.get('anulado'):
+                continue
             p = item.get('proteina')
             if p and p in PROTEINAS:
                 por_dia[dia_key][p] += 1
@@ -68,9 +81,7 @@ def dias_unicos(turnos):
     for t in turnos:
         c = t.get('cerrado_en')
         if c:
-            if isinstance(c, str):
-                c = datetime.fromisoformat(c.replace('Z', '+00:00'))
-            dias.add(c.strftime('%Y-%m-%d'))
+            dias.add(dia_local(c))
     return dias
 
 
@@ -137,11 +148,14 @@ def predecir(fecha_str=None):
     if fecha_str:
         fecha_obj = datetime.strptime(fecha_str, '%Y-%m-%d').date()
     else:
-        fecha_obj = date.today()
+        fecha_obj = datetime.now(TZ).date()
 
     turnos = get_turnos()
     por_dia = construir_dataset(turnos)
-    dias = dias_unicos(turnos)
+    # Solo se entrena con días ANTERIORES a la fecha a predecir: un día en curso
+    # (o futuro) está incompleto y sesgaría la predicción hacia abajo.
+    por_dia = {d: v for d, v in por_dia.items() if d < str(fecha_obj)}
+    dias = {d for d in dias_unicos(turnos) if d < str(fecha_obj)}
 
     if len(dias) >= MIN_DIAS_ML:
         pred, modelo = predecir_ml(datetime.combine(fecha_obj, datetime.min.time()), por_dia)
@@ -173,7 +187,7 @@ def real_del_dia(fecha_str=None):
     if fecha_str:
         fecha_obj = datetime.strptime(fecha_str, '%Y-%m-%d').date()
     else:
-        fecha_obj = date.today()
+        fecha_obj = datetime.now(TZ).date()
 
     r = requests.get(f"{PEDIDOS_URL}/internal/turnos", params={'fecha': str(fecha_obj)},
                       headers=INTERNAL_HEADERS, timeout=10)
@@ -184,6 +198,8 @@ def real_del_dia(fecha_str=None):
     for t in turnos:
         items = t['items'] if isinstance(t['items'], list) else json.loads(t['items'] or '[]')
         for item in items:
+            if item.get('anulado'):
+                continue
             p = item.get('proteina')
             if p and p in PROTEINAS:
                 conteo[p] += 1
