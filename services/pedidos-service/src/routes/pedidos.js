@@ -70,6 +70,47 @@ router.get('/activos', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+const hoyBogota = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+const tipoPlato = (it) => (it.adicional ? null : it.plato || null);
+
+// Caja: mesas cobradas en el día y platos por tipo (sin valores en dinero).
+// Los adicionales no cuentan como plato.
+router.get('/resumen-caja', auth, async (req, res) => {
+  try {
+    const f = req.query.fecha || hoyBogota();
+    const { rows } = await pool.query(
+      `SELECT items FROM pedidos
+       WHERE estado='pagado' AND DATE(COALESCE(cerrado_en, created_at) AT TIME ZONE 'America/Bogota') = $1`,
+      [f]
+    );
+    const platos = {};
+    let totalPlatos = 0;
+    for (const p of rows) {
+      for (const it of (p.items || []).filter(i => !i.anulado)) {
+        const t = tipoPlato(it);
+        if (!t) continue;
+        platos[t] = (platos[t] || 0) + 1;
+        totalPlatos++;
+      }
+    }
+    res.json({ fecha: f, mesasCobradas: rows.length, totalPlatos, platos });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Cocina: minutos promedio desde que entra el pedido hasta que queda listo.
+router.get('/tiempos', auth, async (req, res) => {
+  try {
+    const f = req.query.fecha || hoyBogota();
+    const { rows } = await pool.query(
+      `SELECT ROUND(AVG(EXTRACT(EPOCH FROM (listo_en - created_at)) / 60))::int AS promedio_min, COUNT(*)::int AS pedidos
+       FROM pedidos
+       WHERE listo_en IS NOT NULL AND DATE(listo_en AT TIME ZONE 'America/Bogota') = $1`,
+      [f]
+    );
+    res.json({ fecha: f, ...rows[0] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.get('/mesa/:mesa_id', auth, async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -83,7 +124,13 @@ router.get('/mesa/:mesa_id', auth, async (req, res) => {
 router.patch('/:id/estado', auth, async (req, res) => {
   try {
     const { estado } = req.body;
-    const { rows } = await pool.query('UPDATE pedidos SET estado=$1 WHERE id=$2 RETURNING *', [estado, req.params.id]);
+    // Al quedar listo se guarda la hora, para el promedio de salida de cocina.
+    const { rows } = await pool.query(
+      `UPDATE pedidos SET estado=$1,
+         listo_en = CASE WHEN $1='listo' THEN COALESCE(listo_en, NOW()) ELSE listo_en END
+       WHERE id=$2 RETURNING *`,
+      [estado, req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Pedido no encontrado' });
     broadcast({ tipo: 'pedido_actualizado', pedido: rows[0] });
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -93,6 +140,7 @@ router.patch('/:id/items', auth, async (req, res) => {
   try {
     const { items } = req.body;
     const { rows: curr } = await pool.query('SELECT items FROM pedidos WHERE id=$1', [req.params.id]);
+    if (!curr.length) return res.status(404).json({ error: 'Pedido no encontrado' });
     const nuevos = [...(curr[0].items || []), ...items];
     const { rows } = await pool.query('UPDATE pedidos SET items=$1, total=$2 WHERE id=$3 RETURNING *',
       [JSON.stringify(nuevos), totalDe(nuevos), req.params.id]);
@@ -103,45 +151,54 @@ router.patch('/:id/items', auth, async (req, res) => {
 
 // Marcar como entregado: descuenta inventario invocando al Servicio de
 // Inventario por REST (numeral 3.2), nunca escribiendo directamente sobre su
-// esquema `inventario`.
+// esquema `inventario`. Solo actúa una vez por pedido: si ya estaba entregado,
+// pagado o cancelado devuelve null (antes una segunda entrega descontaba el
+// inventario dos veces y duplicaba el turno en el histórico).
+async function entregar(client, id) {
+  const { rows } = await client.query(
+    `UPDATE pedidos SET estado='entregado', cerrado_en=NOW(), listo_en=COALESCE(listo_en, NOW())
+     WHERE id=$1 AND estado NOT IN ('entregado','pagado','cancelado') RETURNING *`,
+    [id]
+  );
+  const pedido = rows[0];
+  if (!pedido) return null;
+
+  const descuentos = [];
+  // Solo los platos no anulados se descuentan y pasan al histórico.
+  const vigentes = (pedido.items || []).filter(i => !i.anulado);
+  for (const item of vigentes) {
+    const gramos = PORCIONES[item.proteina];
+    if (item.proteina && gramos) descuentos.push({ proteina: item.proteina, gramos });
+  }
+  if (descuentos.length) {
+    try {
+      await fetch(`${INVENTARIO_URL}/internal/descontar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-internal-key': INTERNAL_KEY },
+        body: JSON.stringify({ items: descuentos, pedido_id: pedido.id })
+      });
+    } catch { /* Servicio de Inventario no disponible: el pedido igual se marca entregado;
+                 la reconciliación de inventario queda pendiente (numeral 3.6, monitoreo). */ }
+  }
+
+  await client.query(
+    `INSERT INTO turnos (mesa_numero, zona, mesero_id, mesero_nombre, items, total, abierto_en, cerrado_en)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())`,
+    [pedido.mesa_numero, pedido.zona, pedido.mesero_id, pedido.mesero_nombre,
+      JSON.stringify(vigentes), totalDe(vigentes), pedido.created_at]
+  );
+  return pedido;
+}
+
 router.patch('/:id/entregar', auth, async (req, res) => {
   let client;
   try { client = await pool.connect(); }
   catch (e) { return res.status(503).json({ error: 'Base de datos ocupada, intente de nuevo' }); }
   try {
     await client.query('BEGIN');
-    const { rows } = await client.query(
-      "UPDATE pedidos SET estado='entregado', cerrado_en=NOW() WHERE id=$1 RETURNING *",
-      [req.params.id]
-    );
-    const pedido = rows[0];
-
-    const descuentos = [];
-    // Solo los platos no anulados se descuentan y pasan al histórico.
-    const vigentes = (pedido.items || []).filter(i => !i.anulado);
-    for (const item of vigentes) {
-      const gramos = PORCIONES[item.proteina];
-      if (item.proteina && gramos) descuentos.push({ proteina: item.proteina, gramos });
-    }
-    if (descuentos.length) {
-      try {
-        await fetch(`${INVENTARIO_URL}/internal/descontar`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-internal-key': INTERNAL_KEY },
-          body: JSON.stringify({ items: descuentos, pedido_id: pedido.id })
-        });
-      } catch { /* Servicio de Inventario no disponible: el pedido igual se marca entregado;
-                   la reconciliación de inventario queda pendiente (numeral 3.6, monitoreo). */ }
-    }
-
+    const pedido = await entregar(client, req.params.id);
+    if (!pedido) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'El pedido ya fue entregado' }); }
     await client.query('COMMIT');
-    await pool.query(
-      `INSERT INTO turnos (mesa_numero, zona, mesero_id, mesero_nombre, items, total, abierto_en, cerrado_en)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
-       ON CONFLICT DO NOTHING`,
-      [pedido.mesa_numero, pedido.zona, pedido.mesero_id, pedido.mesero_nombre,
-        JSON.stringify(vigentes), totalDe(vigentes), pedido.created_at]
-    );
     broadcast({ tipo: 'pedido_entregado', pedido });
     res.json(pedido);
   } catch (e) { await client.query('ROLLBACK'); res.status(500).json({ error: e.message }); }
@@ -154,6 +211,13 @@ router.patch('/:id/pagar', auth, async (req, res) => {
   catch (e) { return res.status(503).json({ error: 'Base de datos ocupada, intente de nuevo' }); }
   try {
     await client.query('BEGIN');
+    // Si se cobra un pedido que nadie marcó como entregado, primero se entrega:
+    // así descuenta inventario y queda en el histórico de ventas.
+    const { rows: previo } = await client.query('SELECT estado FROM pedidos WHERE id=$1', [req.params.id]);
+    if (!previo.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Pedido no encontrado' }); }
+    if (previo[0].estado === 'pagado') { await client.query('ROLLBACK'); return res.status(409).json({ error: 'El pedido ya fue pagado' }); }
+    if (previo[0].estado === 'cancelado') { await client.query('ROLLBACK'); return res.status(409).json({ error: 'El pedido fue cancelado' }); }
+    await entregar(client, req.params.id);
     const { rows } = await client.query("UPDATE pedidos SET estado='pagado' WHERE id=$1 RETURNING *", [req.params.id]);
     const { rows: activos } = await client.query(
       "SELECT id FROM pedidos WHERE mesa_id=$1 AND estado NOT IN ('pagado','cancelado')",

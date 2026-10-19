@@ -49,9 +49,10 @@ router.get('/alertas', auth, async (req, res) => {
 router.get('/movimientos', auth, async (req, res) => {
   try {
     const { fecha } = req.query;
-    const f = fecha || new Date().toISOString().split('T')[0];
+    // Día en hora de Bogotá (antes, después de las 7 p. m. se veía el día siguiente).
+    const f = fecha || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
     const { rows } = await pool.query(
-      'SELECT * FROM movimientos_inventario WHERE DATE(created_at)=$1 ORDER BY created_at DESC',
+      "SELECT * FROM movimientos_inventario WHERE DATE(created_at AT TIME ZONE 'America/Bogota')=$1 ORDER BY created_at DESC",
       [f]
     );
     res.json(rows);

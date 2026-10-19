@@ -47,6 +47,8 @@ async function initDB() {
       mesero_id INT, mesero_nombre TEXT, items JSONB DEFAULT '[]',
       total INT DEFAULT 0, abierto_en TIMESTAMPTZ, cerrado_en TIMESTAMPTZ
     );
+    -- Hora en que cocina marca el pedido como listo (promedio de salida en cocina).
+    ALTER TABLE pedidos.pedidos ADD COLUMN IF NOT EXISTS listo_en TIMESTAMPTZ;
   `);
 
   for (let i = 1; i <= 29; i++) {

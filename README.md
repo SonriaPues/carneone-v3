@@ -97,3 +97,32 @@ separado); se creó un esquema de PostgreSQL por servicio (antes uno
 compartido); el servicio de predicción dejó de consultar `turnos` e
 `inventario` directamente y ahora lo hace por REST; y se agregó el API
 Gateway como único punto de entrada.
+
+## Interfaz v4.1 (rediseño)
+
+Frontend rediseñado con el mismo lenguaje visual de Libitina (Plus Jakarta Sans + Inter,
+tarjetas redondeadas, antetítulos dorados, paneles oscuros), en verde CarneOne y dorado.
+
+- **Mesero (celular):** mapa por zonas con mesas libres, ocupadas y con plato listo; aviso en vivo
+  cuando cocina termina; cuenta de la mesa fija arriba; bandeja + proteína, almuerzo, fin de
+  semana y adicionales; nota para cocina en cada plato; quitar platos con motivo.
+- **Cocina:** tablero Nuevos → Preparando → Listos, platos iguales agrupados, minutos por comanda
+  (amarillo desde 8, rojo desde 15), promedio de salida del día y sonido al entrar un pedido.
+- **Caja:** mesas cobradas y platos del día por tipo (sin mostrar dinero del día), cuenta con
+  recibido y cambio, quitar platos con motivo.
+- **Admin:** resumen (ventas, comparación con el mismo día de la semana anterior, platos por hora,
+  proteínas, por mesero/mesa), inventario (para cuántas bandejas alcanza), equipo, menú del día
+  y predicción (lista de compra y acierto de ayer).
+
+Cambios de backend que acompañan el rediseño:
+
+| Servicio | Cambio |
+|---|---|
+| pedidos-service | columna `pedidos.pedidos.listo_en` (se llena al pasar a `listo`) |
+| pedidos-service | `GET /api/pedidos/tiempos` (promedio de minutos hasta listo) y `GET /api/pedidos/resumen-caja` (mesas cobradas y platos por tipo) |
+| pedidos-service | entregar solo actúa una vez (antes una segunda entrega descontaba inventario dos veces y duplicaba el turno) |
+| pedidos-service | cobrar un pedido que nadie marcó como entregado lo entrega primero, para que descuente inventario y quede en el histórico |
+| admin-service | histórico con platos por hora, platos por tipo, platos por mesero/mesa y `semanaAnterior`; día en hora de Bogotá |
+| inventario-service | movimientos del día en hora de Bogotá |
+
+La nota para cocina viaja dentro de cada ítem (`items[].nota`), sin cambiar tablas.

@@ -1,28 +1,29 @@
 import React from 'react';
 
-// Plano real del restaurante
+// Plano real del restaurante.
 // Afuera: cuadrícula 7x3 -> [numero, columna, fila, pequeña]
 const LAYOUT_AFUERA = [
-  [1,0,0,false],[2,1,0,false],[3,2,0,false],[4,4,0,false],[5,5,0,false],[6,6,0,false],
-  [7,0,1,true],[8,6,1,true],
-  [9,0,2,false],[10,1,2,false],[11,2,2,false],[12,4,2,false],[13,5,2,false],[14,6,2,false],
+  [1, 0, 0, false], [2, 1, 0, false], [3, 2, 0, false], [4, 4, 0, false], [5, 5, 0, false], [6, 6, 0, false],
+  [7, 0, 1, true], [8, 6, 1, true],
+  [9, 0, 2, false], [10, 1, 2, false], [11, 2, 2, false], [12, 4, 2, false], [13, 5, 2, false], [14, 6, 2, false],
 ];
-const CUARTO  = [21,22,23,24,25,26,27,28,29];
-const ADENTRO = [15,16,17,18,19,20];
+const CUARTO = [21, 22, 23, 24, 25, 26, 27, 28, 29];
+const ADENTRO = [15, 16, 17, 18, 19, 20];
 
-export default function MapaMesas({ mesas, onMesaClick }) {
-  const getMesa = n => mesas.find(m => Number(m.numero) === n);
+const ETIQUETA = { libre: 'libre', ocupada: 'ocupada', lista: 'con platos listos' };
+
+// estadoDe(numero) devuelve 'libre' | 'ocupada' | 'lista'.
+export default function MapaMesas({ mesas, estadoDe, onMesaClick }) {
+  const getMesa = (n) => mesas.find((m) => Number(m.numero) === n);
 
   const Mesa = ({ n, pequena }) => {
     const m = getMesa(n);
-    const estado = m ? m.estado : 'libre';
+    const estado = m ? estadoDe(n) : 'libre';
     return (
-      <div
-        className={`mapa-mesa ${estado}${pequena ? ' pequena' : ''}${m ? '' : ' sin-datos'}`}
-        onClick={() => m && onMesaClick(m)}
-      >
+      <button type="button" className={`mesa ${estado}${pequena ? ' pequena' : ''}${m ? '' : ' sin-datos'}`}
+        aria-label={`Mesa ${n}, ${ETIQUETA[estado]}`} disabled={!m} onClick={() => m && onMesaClick(m)}>
         {n}
-      </div>
+      </button>
     );
   };
 
@@ -33,25 +34,26 @@ export default function MapaMesas({ mesas, onMesaClick }) {
   }
 
   return (
-    <div className="mapa">
-      <div className="mapa-leyenda">
-        <span><i className="dot libre" /> Libre</span>
-        <span><i className="dot ocupada" /> Ocupada</span>
+    <>
+      <div className="leyenda">
+        <span><i /> Libre</span>
+        <span><i className="ocupada" /> Ocupada</span>
+        <span><i className="lista" /> Plato listo</span>
       </div>
-      <div className="mapa-zona">
-        <div className="mapa-zona-nombre">Afuera</div>
-        <div className="mapa-afuera">{celdas}</div>
+      <section className="zona">
+        <span className="zona-nombre">Afuera</span>
+        <div className="grid-afuera">{celdas}</div>
+      </section>
+      <div className="zonas-fila">
+        <section className="zona">
+          <span className="zona-nombre">El Cuarto</span>
+          <div className="grid-3">{CUARTO.map((n) => <Mesa key={n} n={n} />)}</div>
+        </section>
+        <section className="zona">
+          <span className="zona-nombre">Adentro</span>
+          <div className="grid-3">{ADENTRO.map((n) => <Mesa key={n} n={n} />)}</div>
+        </section>
       </div>
-      <div className="mapa-fila">
-        <div className="mapa-zona">
-          <div className="mapa-zona-nombre">El Cuarto</div>
-          <div className="mapa-grid3">{CUARTO.map(n => <Mesa key={n} n={n} />)}</div>
-        </div>
-        <div className="mapa-zona">
-          <div className="mapa-zona-nombre">Adentro</div>
-          <div className="mapa-grid3">{ADENTRO.map(n => <Mesa key={n} n={n} />)}</div>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }
