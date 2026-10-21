@@ -18,18 +18,20 @@ jobs:
     strategy:
       matrix:
         servicio:
-          - { nombre: gateway,            dockerfile: services/gateway/Dockerfile }
-          - { nombre: pedidos-service,    dockerfile: services/pedidos-service/Dockerfile }
-          - { nombre: inventario-service, dockerfile: services/inventario-service/Dockerfile }
-          - { nombre: admin-service,      dockerfile: services/admin-service/Dockerfile }
-          - { nombre: prediccion-service, dockerfile: services/prediccion-service/Dockerfile }
+          # Mismo contexto de build que docker-compose.yml: el gateway se
+          # construye desde la raíz (copia frontend/), los demás desde su carpeta.
+          - { nombre: gateway,            contexto: .,                           dockerfile: services/gateway/Dockerfile }
+          - { nombre: pedidos-service,    contexto: services/pedidos-service,    dockerfile: services/pedidos-service/Dockerfile }
+          - { nombre: inventario-service, contexto: services/inventario-service, dockerfile: services/inventario-service/Dockerfile }
+          - { nombre: admin-service,      contexto: services/admin-service,      dockerfile: services/admin-service/Dockerfile }
+          - { nombre: prediccion-service, contexto: services/prediccion-service, dockerfile: services/prediccion-service/Dockerfile }
     steps:
       - uses: actions/checkout@v4
 
       - name: Construir imagen de ${{ matrix.servicio.nombre }}
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ${{ matrix.servicio.contexto }}
           file: ${{ matrix.servicio.dockerfile }}
           push: false
           tags: carneone/${{ matrix.servicio.nombre }}:${{ github.sha }}
