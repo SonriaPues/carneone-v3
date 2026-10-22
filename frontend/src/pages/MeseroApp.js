@@ -155,7 +155,7 @@ function MenuHoy({ menu }) {
 }
 
 function Pedido({ mesa, menu, onVolver }) {
-  const { fetchPedidosMesa, crearPedido, agregarItems, entregarPedido, pagarPedido, anularItem, mostrarToast } = useApp();
+  const { fetchPedidosMesa, crearPedido, agregarItems, entregarPedido, anularItem, mostrarToast } = useApp();
   const n = Number(mesa.numero);
   const zona = zonaMesa(n);
   const [activos, setActivos] = useState([]);
@@ -205,8 +205,8 @@ function Pedido({ mesa, menu, onVolver }) {
   };
 
   const listos = activos.filter((p) => p.estado === 'listo');
-  const porCobrar = activos.filter((p) => ['listo', 'entregado'].includes(p.estado));
-  const todoServido = activos.length > 0 && activos.every((p) => ['listo', 'entregado'].includes(p.estado));
+  // Cobrar es solo de caja: el mesero ve que la mesa está por cobrar, sin botón.
+  const porCobrar = activos.length > 0 && activos.every((p) => p.estado === 'entregado');
 
   return (
     <div className="movil" style={{ paddingBottom: 110 }}>
@@ -348,10 +348,10 @@ function Pedido({ mesa, menu, onVolver }) {
           <button type="button" className="btn btn-dorado btn-bloque" style={{ height: 56 }} onClick={() => accion(async () => { for (const p of listos) await entregarPedido(p.id); }, 'Marcado como servido ✓')}>
             Ya lo llevé a la mesa
           </button>
-        ) : todoServido && porCobrar.length > 0 ? (
-          <button type="button" className="btn btn-primario btn-bloque" style={{ height: 56 }} onClick={() => accion(async () => { for (const p of porCobrar) await pagarPedido(p.id); }, `Mesa ${n} pagada ✓`, true)}>
-            Marcar pagada · {pesos(totalCocina)}
-          </button>
+        ) : porCobrar ? (
+          <div className="aviso" role="status" style={{ justifyContent: 'center', minHeight: 56 }}>
+            <b style={{ fontSize: 14 }}>Servida · la cobra caja ({pesos(totalCocina)})</b>
+          </div>
         ) : (
           <button type="button" className="btn btn-borde btn-bloque" style={{ height: 56 }} onClick={onVolver}>Volver a las mesas</button>
         )}

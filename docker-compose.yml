@@ -81,6 +81,7 @@ services:
       INVENTARIO_URL: http://inventario-service:4002
       ADMIN_URL: http://admin-service:4003
       PREDICCION_URL: http://prediccion-service:8000
+      JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET}
     ports: ["4000:4000"]
     networks: [carneone]
 

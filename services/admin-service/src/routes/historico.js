@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const auth = require('../middleware/auth');
+const rol = require('../middleware/rol');
 
 const PEDIDOS_URL = process.env.PEDIDOS_URL || 'http://localhost:4001';
 const INTERNAL_KEY = process.env.INTERNAL_KEY;
@@ -73,7 +74,7 @@ function resumir(fecha, rows) {
   };
 }
 
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, rol('admin'), async (req, res) => {
   try {
     const f = req.query.fecha || hoyBogota();
     const antes = restarDias(f, 7);

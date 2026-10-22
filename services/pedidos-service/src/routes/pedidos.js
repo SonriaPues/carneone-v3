@@ -206,6 +206,8 @@ router.patch('/:id/entregar', auth, async (req, res) => {
 });
 
 router.patch('/:id/pagar', auth, async (req, res) => {
+  // Solo caja (y el administrador) puede cobrar una mesa.
+  if (!['caja', 'admin'].includes(req.user?.rol)) return res.status(403).json({ error: 'Solo caja puede cobrar una mesa' });
   let client;
   try { client = await pool.connect(); }
   catch (e) { return res.status(503).json({ error: 'Base de datos ocupada, intente de nuevo' }); }

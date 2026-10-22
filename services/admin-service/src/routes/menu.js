@@ -2,6 +2,7 @@ const router = require('express').Router();
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const internal = require('../middleware/internal');
+const rol = require('../middleware/rol');
 
 router.get('/', auth, async (req, res) => {
   try {
@@ -10,7 +11,7 @@ router.get('/', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.put('/', auth, async (req, res) => {
+router.put('/', auth, rol('admin'), async (req, res) => {
   try {
     const curr = await pool.query('SELECT * FROM menu WHERE id=1');
     const prev = curr.rows[0] || { proteinas: {}, platos: {} };

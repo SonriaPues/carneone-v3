@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const http = require('http');
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const jwt = require('jsonwebtoken');
 
 // API Gateway (numeral 3.1): único punto de entrada del sistema. Enruta cada
 // prefijo /api/<módulo> al microservicio dueño de ese módulo y sirve el
@@ -32,8 +33,21 @@ app.use('/api/meseros', adminProxy);
 app.use('/api/menu', adminProxy);
 app.use('/api/historico', adminProxy);
 
+// El servicio de predicción (FastAPI) no valida sesiones; el Gateway exige aquí
+// una sesión de administrador (antes respondía a cualquiera, incluso sin sesión).
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) console.warn('ADVERTENCIA: falta JWT_SECRET en el Gateway; /api/prediccion queda sin validar sesión.');
+const soloAdmin = (req, res, next) => {
+  if (!JWT_SECRET) return next();
+  try {
+    const user = jwt.verify((req.headers.authorization || '').split(' ')[1], JWT_SECRET);
+    if (user.rol !== 'admin') return res.status(403).json({ error: 'No autorizado para este rol' });
+    next();
+  } catch { res.status(401).json({ error: 'Sin sesión válida' }); }
+};
+
 // --- Predicción de demanda (FastAPI): reescribe /api/prediccion/x -> /x ---
-app.use('/api/prediccion', createProxyMiddleware({
+app.use('/api/prediccion', soloAdmin, createProxyMiddleware({
   target: PREDICCION_URL,
   changeOrigin: true,
   pathRewrite: { '^/api/prediccion': '' }

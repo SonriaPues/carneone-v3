@@ -2,15 +2,19 @@ const router = require('express').Router();
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const internal = require('../middleware/internal');
+const rol = require('../middleware/rol');
+// Consultar: admin, cocina y caja. Registrar compras, mermas o mínimos: solo admin.
+const lectura = [auth, rol('admin', 'cocina', 'caja')];
+const escritura = [auth, rol('admin')];
 
-router.get('/', auth, async (req, res) => {
+router.get('/', lectura, async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM inventario ORDER BY nombre');
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/compra', auth, async (req, res) => {
+router.post('/compra', escritura, async (req, res) => {
   const { insumo_nombre, cantidad_g } = req.body;
   const client = await pool.connect();
   try {
@@ -28,7 +32,7 @@ router.post('/compra', auth, async (req, res) => {
   finally { client.release(); }
 });
 
-router.patch('/:nombre/stock-minimo', auth, async (req, res) => {
+router.patch('/:nombre/stock-minimo', escritura, async (req, res) => {
   try {
     const { stock_minimo_g } = req.body;
     const { rows } = await pool.query(
@@ -39,14 +43,14 @@ router.patch('/:nombre/stock-minimo', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/alertas', auth, async (req, res) => {
+router.get('/alertas', lectura, async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM inventario WHERE stock_actual <= stock_minimo_g ORDER BY nombre');
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/movimientos', auth, async (req, res) => {
+router.get('/movimientos', lectura, async (req, res) => {
   try {
     const { fecha } = req.query;
     // Día en hora de Bogotá (antes, después de las 7 p. m. se veía el día siguiente).
@@ -59,7 +63,7 @@ router.get('/movimientos', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/movimiento', auth, async (req, res) => {
+router.post('/movimiento', escritura, async (req, res) => {
   const { insumo_nombre, tipo, cantidad_g, motivo } = req.body;
   const client = await pool.connect();
   try {

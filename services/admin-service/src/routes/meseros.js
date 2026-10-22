@@ -2,15 +2,17 @@ const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
+const rol = require('../middleware/rol');
+const soloAdmin = [auth, rol('admin')];
 
-router.get('/', auth, async (req, res) => {
+router.get('/', soloAdmin, async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT id,nombre,usuario,rol,activo FROM usuarios ORDER BY nombre');
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/', auth, async (req, res) => {
+router.post('/', soloAdmin, async (req, res) => {
   const { nombre, usuario, password, rol } = req.body;
   try {
     const hash = await bcrypt.hash(password, 10);
@@ -22,7 +24,7 @@ router.post('/', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', soloAdmin, async (req, res) => {
   const { nombre, usuario, password, activo, rol } = req.body;
   try {
     let q, p;
@@ -39,7 +41,7 @@ router.put('/:id', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', soloAdmin, async (req, res) => {
   try {
     await pool.query('UPDATE usuarios SET activo=false WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
