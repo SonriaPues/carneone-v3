@@ -102,9 +102,25 @@ router.post('/internal/descontar', internal, async (req, res) => {
   try {
     await client.query('BEGIN');
     for (const { proteina, gramos } of items || []) {
+      // El plato ya se sirvió: la venta se descuenta siempre. Si el stock del
+      // sistema no alcanza (el físico era mayor que el registrado), se registra
+      // un "ajuste por faltante" por la diferencia, para que el stock nunca
+      // quede negativo y siga cuadrando con la suma de movimientos.
+      const { rows } = await client.query(
+        'SELECT stock_actual FROM inventario WHERE nombre=$1 FOR UPDATE', [proteina]
+      );
+      if (!rows.length) continue;
+      const faltante = Math.max(0, gramos - rows[0].stock_actual);
+      if (faltante > 0) {
+        await client.query(
+          `INSERT INTO movimientos_inventario (insumo_nombre, tipo, cantidad_g, motivo, referencia_pedido_id, created_at)
+           VALUES ($1,'entrada',$2,'ajuste por faltante',$3,NOW())`,
+          [proteina, faltante, pedido_id]
+        );
+      }
       await client.query(
-        'UPDATE inventario SET stock_actual = stock_actual - $1 WHERE nombre=$2 AND stock_actual >= $1',
-        [gramos, proteina]
+        'UPDATE inventario SET stock_actual = stock_actual + $1 - $2, updated_at = NOW() WHERE nombre=$3',
+        [faltante, gramos, proteina]
       );
       await client.query(
         `INSERT INTO movimientos_inventario (insumo_nombre, tipo, cantidad_g, motivo, referencia_pedido_id, created_at)
